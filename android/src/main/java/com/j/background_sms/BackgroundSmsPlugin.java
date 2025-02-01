@@ -4,9 +4,15 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.os.Build;
 import android.telephony.SmsManager;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 
 import androidx.annotation.NonNull;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -52,9 +58,11 @@ public class BackgroundSmsPlugin implements FlutterPlugin, MethodCallHandler {
       String msg = call.argument("msg");
       Integer simSlot = call.argument("simSlot");
       sendSMS(num, msg, simSlot, result);
-    }else if(call.method.equals("isSupportMultiSim")) {
+    } else if(call.method.equals("isSupportMultiSim")) {
       isSupportCustomSim(result);
-    } else{
+    } else if(call.method.equals("getSimCardsInfo")) {
+      getSimCardsInfo(result);
+    } else {
       result.notImplemented();
     }
   }
@@ -84,6 +92,41 @@ public class BackgroundSmsPlugin implements FlutterPlugin, MethodCallHandler {
     } catch (Exception ex) {
       ex.printStackTrace();
       result.error("Failed", "Sms Not Sent", "");
+    }
+  }
+
+  /**
+   * Gets information about all available SIM cards
+   * @param result Flutter result to return the SIM cards data
+   */
+  private void getSimCardsInfo(Result result) {
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+        SubscriptionManager subscriptionManager = (SubscriptionManager) context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+        if (subscriptionManager != null) {
+          List<Map<String, Object>> simCards = new ArrayList<>();
+          
+          List<SubscriptionInfo> subscriptionInfoList = subscriptionManager.getActiveSubscriptionInfoList();
+          if (subscriptionInfoList != null) {
+            for (SubscriptionInfo info : subscriptionInfoList) {
+              Map<String, Object> simData = new HashMap<>();
+              simData.put("subscriptionId", info.getSubscriptionId());
+              simData.put("displayName", info.getDisplayName().toString());
+              simData.put("carrierName", info.getCarrierName().toString());
+              simData.put("slotIndex", info.getSimSlotIndex());
+              simData.put("number", info.getNumber() != null ? info.getNumber() : "");
+              simCards.add(simData);
+            }
+          }
+          result.success(simCards);
+        } else {
+          result.error("UNAVAILABLE", "Subscription manager not available", null);
+        }
+      } else {
+        result.error("UNAVAILABLE", "Feature not available on this Android version", null);
+      }
+    } catch (Exception e) {
+      result.error("ERROR", e.getMessage(), null);
     }
   }
 
