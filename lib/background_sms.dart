@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:background_sms/logger.dart';
 import 'package:flutter/services.dart';
 
 enum SmsStatus { sent, failed }
@@ -73,15 +74,28 @@ class BackgroundSms {
   ///
   /// Returns a list of [SimCard] objects containing information about each SIM card.
   /// Returns an empty list if no SIM cards are available or if there's an error.
-  static Future<List<SimCard>> getSimCards() async {
+  static Future<List<SimCard>> getSimCards({bool isDebug = false}) async {
     try {
       final List<dynamic> result =
           await _channel.invokeMethod('getSimCardsInfo');
-      return result
+      final simCards = result
           .map((dynamic item) => SimCard.fromMap(item as Map<dynamic, dynamic>))
           .toList();
+
+      if (isDebug) {
+        AppLogger.info('''SIM Cards Information:
+        ${simCards.map((sim) => '''
+        📱 SIM ${sim.slotIndex + 1} (${sim.displayName}):
+          📞 Number: ${sim.number}
+          🏢 Carrier: ${sim.carrierName}
+          🆔 Subscription ID: ${sim.subscriptionId}
+          📍 Slot Index: ${sim.slotIndex}
+        ''').join('')}''');
+      }
+
+      return simCards;
     } on PlatformException catch (e) {
-      print('Error getting SIM cards info: ${e.toString()}');
+      AppLogger.error('Error getting SIM cards info: ${e.toString()}');
       return [];
     }
   }
